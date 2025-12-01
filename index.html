@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Minesweeper</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            overflow: hidden;
+            color: #e0e0e0;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        canvas {
+            display: block;
+        }
+        
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .header {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            pointer-events: auto;
+        }
+        
+        .title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, #00f5ff 0%, #ff00e5 50%, #00ff9d 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(0, 245, 255, 0.5);
+            letter-spacing: 0.3em;
+            margin-bottom: 5px;
+        }
+        
+        .subtitle {
+            font-size: 0.9rem;
+            color: #888;
+            letter-spacing: 0.5em;
+            text-transform: uppercase;
+        }
+        
+        .stats-panel {
+            position: absolute;
+            top: 100px;
+            left: 20px;
+            background: rgba(10, 10, 20, 0.85);
+            border: 1px solid rgba(0, 245, 255, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            min-width: 140px;
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+        }
+        
+        .stat-item {
+            margin-bottom: 12px;
+        }
+        
+        .stat-label {
+            font-size: 0.7rem;
+            color: #00f5ff;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            margin-bottom: 3px;
+        }
+        
+        .stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        
+        .stat-value.mines {
+            color: #ff00e5;
+        }
+        
+        .stat-value.flags {
+            color: #00ff9d;
+        }
+        
+        .controls-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            pointer-events: auto;
+        }
+        
+        .btn {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #00f5ff 0%, #0099ff 100%);
+            color: #000;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 245, 255, 0.4);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: #00f5ff;
+            border: 1px solid rgba(0, 245, 255, 0.5);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(0, 245, 255, 0.1);
+            border-color: #00f5ff;
+        }
+        
+        .help-panel {
+            position: absolute;
+            top: 100px;
+            right: 20px;
+            background: rgba(10, 10, 20, 0.85);
+            border: 1px solid rgba(255, 0, 229, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 220px;
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+        }
+        
+        .help-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.9rem;
+            color: #ff00e5;
+            margin-bottom: 15px;
+            letter-spacing: 0.1em;
+        }
+        
+        .help-item {
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        
+        .help-item span {
+            color: #fff;
+            font-weight: 500;
+        }
+        
+        .game-message {
+            position: absolute;
+            bottom: 150px;
+            left: 20px;
+            text-align: center;
+            pointer-events: auto;
+            display: none;
+            cursor: move;
+            user-select: none;
+        }
+        
+        .game-message.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .game-message.dragging {
+            opacity: 0.9;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        .message-box {
+            background: rgba(10, 10, 20, 0.75);
+            border: 2px solid;
+            border-radius: 15px;
+            padding: 25px 40px;
+            backdrop-filter: blur(5px);
+        }
+        
+        .message-box.win {
+            border-color: #00ff9d;
+            box-shadow: 0 0 60px rgba(0, 255, 157, 0.3);
+        }
+        
+        .message-box.lose {
+            border-color: #ff0055;
+            box-shadow: 0 0 60px rgba(255, 0, 85, 0.3);
+        }
+        
+        .message-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem;
+            font-weight: 900;
+            margin-bottom: 5px;
+        }
+        
+        .message-box.win .message-title {
+            color: #00ff9d;
+        }
+        
+        .message-box.lose .message-title {
+            color: #ff0055;
+        }
+        
+        .message-subtitle {
+            font-size: 1rem;
+            color: #888;
+            margin-bottom: 20px;
+        }
+        
+
+        
+        .size-selector-panel {
+            position: absolute;
+            bottom: 150px;
+            right: 130px;
+            background: rgba(10, 10, 20, 0.85);
+            border: 1px solid rgba(0, 245, 255, 0.3);
+            border-radius: 12px;
+            padding: 12px;
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .size-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            color: #00f5ff;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            text-align: center;
+        }
+        
+        .size-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .size-btn {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 6px 10px;
+            border: 2px solid rgba(0, 245, 255, 0.4);
+            border-radius: 6px;
+            background: transparent;
+            color: #00f5ff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        
+        .size-btn:hover {
+            background: rgba(0, 245, 255, 0.2);
+            border-color: #00f5ff;
+        }
+        
+        .size-btn.active {
+            background: rgba(0, 245, 255, 0.3);
+            border-color: #00f5ff;
+            box-shadow: 0 0 10px rgba(0, 245, 255, 0.5);
+        }
+        
+        .mine-selector-panel {
+            position: absolute;
+            bottom: 150px;
+            right: 20px;
+            background: rgba(10, 10, 20, 0.85);
+            border: 1px solid rgba(255, 0, 229, 0.3);
+            border-radius: 12px;
+            padding: 12px;
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .selector-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            color: #ff00e5;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            text-align: center;
+        }
+        
+        .mine-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .mine-btn {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            width: 40px;
+            height: 28px;
+            border: 2px solid rgba(255, 0, 229, 0.4);
+            border-radius: 6px;
+            background: transparent;
+            color: #ff00e5;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .mine-btn:hover {
+            background: rgba(255, 0, 229, 0.2);
+            border-color: #ff00e5;
+        }
+        
+        .mine-btn.active {
+            background: rgba(255, 0, 229, 0.3);
+            border-color: #ff00e5;
+            box-shadow: 0 0 10px rgba(255, 0, 229, 0.5);
+        }
+        
+
+        .theme-toggle {
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: auto;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .theme-btn, .rotate-btn {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 8px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            background: rgba(10, 10, 20, 0.7);
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        
+        .theme-btn:hover, .rotate-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #fff;
+        }
+        
+        .rotate-btn.stopped {
+            border-color: #ff6600;
+            color: #ff6600;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Orbitron', sans-serif;
+            color: #00f5ff;
+            font-size: 1.2rem;
+            letter-spacing: 0.3em;
+        }
+        
+        .grid-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(ellipse at 20% 80%, rgba(0, 245, 255, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(255, 0, 229, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(100, 100, 180, 0.1) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: -1;
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-glow"></div>
+    <div id="container">
+        <div class="loading" id="loading">INITIALIZING...</div>
+        
+        <div class="ui-overlay" id="ui">
+            <div class="header">
+                <div class="title">MINESWEEPER</div>
+                <div class="subtitle">3D Edition</div>
+            </div>
+            
+            <div class="theme-toggle">
+                <button class="theme-btn" id="themeToggle">🌙 Dark</button>
+                <button class="rotate-btn stopped" id="rotateToggle">⏹️ 回転 OFF</button>
+                <button class="rotate-btn stopped" id="emptyToggle">⬜ 空セル OFF</button>
+            </div>
+            
+            <div class="stats-panel">
+                <div class="stat-item">
+                    <div class="stat-label">Time</div>
+                    <div class="stat-value" id="timer">0:00</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Mines</div>
+                    <div class="stat-value mines" id="mines">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Flags</div>
+                    <div class="stat-value flags" id="flags">0</div>
+                </div>
+            </div>
+            
+            <div class="help-panel">
+                <div class="help-title">Controls</div>
+                <div class="help-item"><span>左クリック</span> - セルを開く</div>
+                <div class="help-item"><span>右クリック</span> - フラグを立てる</div>
+                <div class="help-item"><span>ドラッグ</span> - 回転</div>
+                <div class="help-item"><span>スクロール</span> - ズーム</div>
+                <div class="help-item"><span>Ctrl+スクロール</span> - 隙間調整</div>
+            </div>
+            
+            <div class="size-selector-panel">
+                <span class="size-label">Size</span>
+                <div class="size-buttons">
+                    <button class="size-btn" data-size="3">初級<br>3×3×3</button>
+                    <button class="size-btn active" data-size="5">中級<br>5×5×5</button>
+                    <button class="size-btn" data-size="7">上級<br>7×7×7</button>
+                </div>
+            </div>
+            
+            <div class="mine-selector-panel">
+                <span class="selector-label">Mines</span>
+                <div class="mine-buttons">
+                    <button class="mine-btn" data-mines="3">3</button>
+                    <button class="mine-btn active" data-mines="5">5</button>
+                    <button class="mine-btn" data-mines="10">10</button>
+                    <button class="mine-btn" data-mines="15">15</button>
+                    <button class="mine-btn" data-mines="20">20</button>
+                    <button class="mine-btn" data-mines="25">25</button>
+                </div>
+            </div>
+            
+            <div class="controls-panel">
+                <button class="btn btn-primary" id="newGame">New Game</button>
+                <button class="btn btn-secondary" id="resetView">Reset View</button>
+            </div>
+            
+            <div class="game-message" id="gameMessage">
+                <div class="message-box" id="messageBox">
+                    <div class="message-title" id="messageTitle">VICTORY</div>
+                    <div class="message-subtitle" id="messageSubtitle">You cleared all mines!</div>
+                    <button class="btn btn-primary" id="playAgain">Play Again</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Game Configuration
+        let GRID_SIZE = 5;
+        let MINE_COUNT = 5;
+        const CELL_SIZE = 1;
+        let cellGap = 0.15;
+        
+        // Game State
+        let cells = [];
+        let gameOver = false;
+        let gameWon = false;
+        let gameStarted = false;
+        let flagCount = 0;
+        let revealedCount = 0;
+        let timerInterval = null;
+        let seconds = 0;
+        
+        // Three.js Variables
+        let scene, camera, renderer, raycaster, mouse;
+        let cubeGroup;
+        let hoveredCell = null;
+        
+        // Number colors for dark theme
+        const numberColorsDark = [
+            null,
+            '#00f5ff', // 1 - cyan
+            '#00ff9d', // 2 - green
+            '#ff00e5', // 3 - pink
+            '#ffaa00', // 4 - orange
+            '#ff0055', // 5 - red
+            '#00ffff', // 6 - bright cyan
+            '#ff77ff', // 7 - light pink
+            '#ffffff'  // 8 - white
+        ];
+        
+        // Number colors for light theme (darker, more visible)
+        const numberColorsLight = [
+            null,
+            '#0066aa', // 1 - dark blue
+            '#008844', // 2 - dark green
+            '#aa0088', // 3 - dark magenta
+            '#cc6600', // 4 - dark orange
+            '#cc0033', // 5 - dark red
+            '#007799', // 6 - teal
+            '#880088', // 7 - purple
+            '#333333'  // 8 - dark gray
+        ];
+        
+        function getNumberColors() {
+            return isDarkTheme ? numberColorsDark : numberColorsLight;
+        }
+        
+        // Theme
+        let isDarkTheme = true;
+        let autoRotate = false;
+        let showEmptyCells = false;
+        
+        const themes = {
+            dark: {
+                background: 0x1a1a2e,
+                fog: 0x1a1a2e,
+                ambient: 0x6060a0,
+                hiddenBg1: '#3a3a5e',
+                hiddenBg2: '#2a2a4e',
+                hiddenBorder: '#5a5a8e',
+                hiddenInner: '#6a6a9e',
+                emptyBg: '#0a0a10',
+                emptyBorder: '#222233',
+                mineBg: '#1a0010',
+                flagBg: '#1a1400',
+                numberBg: '#0d0d15'
+            },
+            light: {
+                background: 0xe8f4fc,
+                fog: 0xe8f4fc,
+                ambient: 0xffffff,
+                hiddenBg1: '#7eb8e2',
+                hiddenBg2: '#5a9fd4',
+                hiddenBorder: '#3080c0',
+                hiddenInner: '#4090d0',
+                emptyBg: '#f0f8ff',
+                emptyBorder: '#a0c8e8',
+                mineBg: '#ffcccc',
+                flagBg: '#fff0cc',
+                numberBg: '#f5faff'
+            }
+        };
+        
+        function getCurrentTheme() {
+            return isDarkTheme ? themes.dark : themes.light;
+        }
+        
+        // Create number textures
+        function createNumberTexture(number) {
+            const theme = getCurrentTheme();
+            const colors = getNumberColors();
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = theme.numberBg;
+            ctx.fillRect(0, 0, 128, 128);
+            
+            // Border glow
+            const color = colors[number] || (isDarkTheme ? '#ffffff' : '#333333');
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 4;
+            ctx.strokeRect(4, 4, 120, 120);
+            
+            // Number with glow
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = isDarkTheme ? 15 : 5;
+            ctx.font = 'bold 80px Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(number.toString(), 64, 68);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+        
+        // Create empty revealed texture
+        function createEmptyTexture() {
+            const theme = getCurrentTheme();
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = theme.emptyBg;
+            ctx.fillRect(0, 0, 128, 128);
+            
+            ctx.strokeStyle = theme.emptyBorder;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(4, 4, 120, 120);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+        
+        // Create mine texture
+        function createMineTexture() {
+            const theme = getCurrentTheme();
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = theme.mineBg;
+            ctx.fillRect(0, 0, 128, 128);
+            
+            // Mine circle
+            const mineColor = isDarkTheme ? '#ff0055' : '#cc0000';
+            ctx.fillStyle = mineColor;
+            ctx.shadowColor = mineColor;
+            ctx.shadowBlur = isDarkTheme ? 20 : 10;
+            ctx.beginPath();
+            ctx.arc(64, 64, 35, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Spikes
+            ctx.strokeStyle = mineColor;
+            ctx.lineWidth = 6;
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                ctx.beginPath();
+                ctx.moveTo(64 + Math.cos(angle) * 30, 64 + Math.sin(angle) * 30);
+                ctx.lineTo(64 + Math.cos(angle) * 50, 64 + Math.sin(angle) * 50);
+                ctx.stroke();
+            }
+            
+            // Center highlight
+            ctx.fillStyle = isDarkTheme ? '#ff5588' : '#ff6666';
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(54, 54, 12, 0, Math.PI * 2);
+            ctx.fill();
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+        
+        // Create flag texture
+        function createFlagTexture() {
+            const theme = getCurrentTheme();
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = theme.flagBg;
+            ctx.fillRect(0, 0, 128, 128);
+            
+            const flagColor = isDarkTheme ? '#ffcc00' : '#cc8800';
+            ctx.shadowColor = flagColor;
+            ctx.shadowBlur = isDarkTheme ? 15 : 8;
+            
+            // Pole
+            ctx.fillStyle = isDarkTheme ? '#aa8800' : '#885500';
+            ctx.fillRect(58, 25, 6, 80);
+            
+            // Flag
+            ctx.fillStyle = flagColor;
+            ctx.beginPath();
+            ctx.moveTo(64, 25);
+            ctx.lineTo(100, 45);
+            ctx.lineTo(64, 65);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Base
+            ctx.fillStyle = isDarkTheme ? '#aa8800' : '#885500';
+            ctx.fillRect(45, 100, 38, 8);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+        
+        // Create wrong flag texture (flag with red X)
+        function createWrongFlagTexture() {
+            const theme = getCurrentTheme();
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            
+            // Background - reddish
+            ctx.fillStyle = isDarkTheme ? '#2a0a0a' : '#ffdddd';
+            ctx.fillRect(0, 0, 128, 128);
+            
+            const flagColor = isDarkTheme ? '#ffcc00' : '#cc8800';
+            ctx.shadowColor = flagColor;
+            ctx.shadowBlur = isDarkTheme ? 10 : 5;
+            
+            // Pole
+            ctx.fillStyle = isDarkTheme ? '#aa8800' : '#885500';
+            ctx.fillRect(58, 25, 6, 80);
+            
+            // Flag
+            ctx.fillStyle = flagColor;
+            ctx.beginPath();
+            ctx.moveTo(64, 25);
+            ctx.lineTo(100, 45);
+            ctx.lineTo(64, 65);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Base
+            ctx.fillStyle = isDarkTheme ? '#aa8800' : '#885500';
+            ctx.fillRect(45, 100, 38, 8);
+            
+            // Red X overlay
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 10;
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            
+            // Draw X
+            ctx.beginPath();
+            ctx.moveTo(20, 20);
+            ctx.lineTo(108, 108);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(108, 20);
+            ctx.lineTo(20, 108);
+            ctx.stroke();
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+        
+        // Create hidden cell texture
+        function createHiddenTexture() {
+            const theme = getCurrentTheme();
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            
+            // Gradient background - brighter
+            const gradient = ctx.createLinearGradient(0, 0, 128, 128);
+            gradient.addColorStop(0, theme.hiddenBg1);
+            gradient.addColorStop(1, theme.hiddenBg2);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 128, 128);
+            
+            // Border - brighter
+            ctx.strokeStyle = theme.hiddenBorder;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(4, 4, 120, 120);
+            
+            // Inner highlight
+            ctx.strokeStyle = theme.hiddenInner;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(8, 8, 112, 112);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+        
+        // Regenerate all textures
+        function regenerateTextures() {
+            textures.hidden = createHiddenTexture();
+            textures.empty = createEmptyTexture();
+            textures.mine = createMineTexture();
+            textures.flag = createFlagTexture();
+            textures.wrongFlag = createWrongFlagTexture();
+            for (let i = 1; i <= 26; i++) {
+                textures.numbers[i] = createNumberTexture(i);
+            }
+        }
+        
+        // Pre-generate textures
+        const textures = {
+            hidden: createHiddenTexture(),
+            empty: createEmptyTexture(),
+            mine: createMineTexture(),
+            flag: createFlagTexture(),
+            wrongFlag: createWrongFlagTexture(),
+            numbers: [null]
+        };
+        
+        // Generate number textures
+        for (let i = 1; i <= 26; i++) {
+            textures.numbers[i] = createNumberTexture(i);
+        }
+        
+        // Size configurations
+        const sizeConfigs = {
+            3: { mines: [3, 5, 7, 10, 12], defaultMine: 5 },      // 27 cells
+            5: { mines: [3, 5, 10, 15, 20, 25], defaultMine: 5 }, // 125 cells
+            7: { mines: [5, 10, 20, 30, 40, 50], defaultMine: 10 } // 343 cells
+        };
+        
+        function updateMineButtons() {
+            const config = sizeConfigs[GRID_SIZE];
+            const container = document.querySelector('.mine-buttons');
+            container.innerHTML = '';
+            
+            config.mines.forEach(mineCount => {
+                const btn = document.createElement('button');
+                btn.className = 'mine-btn' + (mineCount === MINE_COUNT ? ' active' : '');
+                btn.dataset.mines = mineCount;
+                btn.textContent = mineCount;
+                container.appendChild(btn);
+            });
+            
+            // Re-add event listeners
+            container.querySelectorAll('.mine-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    container.querySelectorAll('.mine-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    MINE_COUNT = parseInt(e.target.dataset.mines);
+                    newGame();
+                });
+            });
+        }
+        
+        function updateCellPositions() {
+            const offset = (GRID_SIZE - 1) * (CELL_SIZE + cellGap) / 2;
+            cells.forEach(cell => {
+                cell.mesh.position.set(
+                    cell.x * (CELL_SIZE + cellGap) - offset,
+                    cell.y * (CELL_SIZE + cellGap) - offset,
+                    cell.z * (CELL_SIZE + cellGap) - offset
+                );
+            });
+        }
+        
+        function toggleTheme() {
+            isDarkTheme = !isDarkTheme;
+            const theme = getCurrentTheme();
+            
+            // Update button text
+            document.getElementById('themeToggle').textContent = isDarkTheme ? '🌙 Dark' : '☀️ Light';
+            
+            // Update scene background
+            scene.background = new THREE.Color(theme.background);
+            scene.fog = new THREE.Fog(theme.fog, 20, 40);
+            
+            // Update body background
+            if (isDarkTheme) {
+                document.body.style.background = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)';
+            } else {
+                document.body.style.background = 'linear-gradient(135deg, #87ceeb 0%, #b0d4f1 50%, #c0e0ff 100%)';
+            }
+            
+            // Regenerate textures
+            regenerateTextures();
+            
+            // Update all cells with new textures
+            cells.forEach(cell => {
+                if (cell.isRevealed) {
+                    if (cell.isMine) {
+                        updateCellTexture(cell, textures.mine, true);
+                    } else if (cell.adjacentMines > 0) {
+                        updateCellTexture(cell, textures.numbers[cell.adjacentMines], true);
+                    } else {
+                        updateCellTexture(cell, textures.empty, true);
+                    }
+                } else if (cell.isFlagged) {
+                    updateCellTexture(cell, textures.flag, true);
+                } else {
+                    updateCellTexture(cell, textures.hidden, false);
+                }
+            });
+        }
+        
+        function toggleRotation() {
+            autoRotate = !autoRotate;
+            const btn = document.getElementById('rotateToggle');
+            if (autoRotate) {
+                btn.textContent = '🔄 回転 ON';
+                btn.classList.remove('stopped');
+            } else {
+                btn.textContent = '⏹️ 回転 OFF';
+                btn.classList.add('stopped');
+            }
+        }
+        
+        function toggleEmptyCells() {
+            showEmptyCells = !showEmptyCells;
+            const btn = document.getElementById('emptyToggle');
+            if (showEmptyCells) {
+                btn.textContent = '⬛ 空セル ON';
+                btn.classList.remove('stopped');
+            } else {
+                btn.textContent = '⬜ 空セル OFF';
+                btn.classList.add('stopped');
+            }
+            
+            // 既に開いた空セルの表示を更新
+            cells.forEach(cell => {
+                if (cell.isRevealed && cell.adjacentMines === 0 && !cell.isMine) {
+                    cell.mesh.visible = showEmptyCells;
+                }
+            });
+        }
+        
+        // Popup drag functionality
+        let popupDragging = false;
+        let popupOffset = { x: 0, y: 0 };
+        
+        function setupPopupDrag() {
+            const popup = document.getElementById('gameMessage');
+            
+            popup.addEventListener('mousedown', (e) => {
+                if (e.target.tagName === 'BUTTON') return; // Don't drag when clicking button
+                
+                popupDragging = true;
+                popup.classList.add('dragging');
+                
+                const rect = popup.getBoundingClientRect();
+                popupOffset.x = e.clientX - rect.left;
+                popupOffset.y = e.clientY - rect.top;
+                
+                // Remove transform so positioning works correctly
+                popup.style.transform = 'none';
+                popup.style.left = rect.left + 'px';
+                popup.style.top = rect.top + 'px';
+                popup.style.bottom = 'auto';
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!popupDragging) return;
+                
+                const popup = document.getElementById('gameMessage');
+                popup.style.left = (e.clientX - popupOffset.x) + 'px';
+                popup.style.top = (e.clientY - popupOffset.y) + 'px';
+            });
+            
+            document.addEventListener('mouseup', () => {
+                if (popupDragging) {
+                    popupDragging = false;
+                    document.getElementById('gameMessage').classList.remove('dragging');
+                }
+            });
+        }
+        
+        // Initialize
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a2e);
+            scene.fog = new THREE.Fog(0x1a1a2e, 20, 40);
+            
+            // Camera
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(8, 8, 8);
+            camera.lookAt(0, 0, 0);
+            
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Raycaster
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+            
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0x6060a0, 0.8);
+            scene.add(ambientLight);
+            
+            const mainLight = new THREE.DirectionalLight(0xffffff, 1.0);
+            mainLight.position.set(10, 20, 10);
+            mainLight.castShadow = true;
+            scene.add(mainLight);
+            
+            const fillLight = new THREE.PointLight(0x00f5ff, 0.6, 30);
+            fillLight.position.set(-8, 8, -8);
+            scene.add(fillLight);
+            
+            const backLight = new THREE.PointLight(0xff00e5, 0.5, 30);
+            backLight.position.set(8, -8, 8);
+            scene.add(backLight);
+            
+            const bottomLight = new THREE.PointLight(0x4444ff, 0.4, 25);
+            bottomLight.position.set(0, -10, 0);
+            scene.add(bottomLight);
+            
+            // Create game
+            createGame();
+            
+            // Controls
+            setupControls();
+            
+            // Event listeners
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('click', onClick);
+            document.addEventListener('contextmenu', onRightClick);
+            
+            document.getElementById('newGame').addEventListener('click', newGame);
+            document.getElementById('playAgain').addEventListener('click', newGame);
+            document.getElementById('resetView').addEventListener('click', resetView);
+            document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+            document.getElementById('rotateToggle').addEventListener('click', toggleRotation);
+            document.getElementById('emptyToggle').addEventListener('click', toggleEmptyCells);
+            
+            // Mine buttons
+            document.querySelectorAll('.mine-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.mine-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    MINE_COUNT = parseInt(e.target.dataset.mines);
+                    newGame();
+                });
+            });
+            
+            // Size buttons
+            document.querySelectorAll('.size-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    GRID_SIZE = parseInt(e.target.dataset.size);
+                    const config = sizeConfigs[GRID_SIZE];
+                    MINE_COUNT = config.defaultMine;
+                    updateMineButtons();
+                    newGame();
+                });
+            });
+            
+
+            
+            // Hide loading
+            document.getElementById('loading').style.display = 'none';
+            
+            // Setup popup drag
+            setupPopupDrag();
+            
+            // Start animation
+            animate();
+        }
+        
+        function createGame() {
+            // Clear previous game
+            if (cubeGroup) {
+                scene.remove(cubeGroup);
+            }
+            cells = [];
+            
+            cubeGroup = new THREE.Group();
+            scene.add(cubeGroup);
+            
+            const offset = (GRID_SIZE - 1) * (CELL_SIZE + cellGap) / 2;
+            
+            // Create cells
+            for (let x = 0; x < GRID_SIZE; x++) {
+                for (let y = 0; y < GRID_SIZE; y++) {
+                    for (let z = 0; z < GRID_SIZE; z++) {
+                        const cell = createCell(x, y, z, offset);
+                        cells.push(cell);
+                        cubeGroup.add(cell.mesh);
+                    }
+                }
+            }
+            
+            // Place mines
+            placeMines();
+            
+            // Calculate adjacent mines
+            calculateAdjacentMines();
+            
+            // Update UI
+            updateUI();
+        }
+        
+        function createCell(x, y, z, offset) {
+            const geometry = new THREE.BoxGeometry(CELL_SIZE * 0.85, CELL_SIZE * 0.85, CELL_SIZE * 0.85);
+            
+            // Calculate distance from center for opacity
+            const centerDist = Math.sqrt(
+                Math.pow(x - (GRID_SIZE - 1) / 2, 2) +
+                Math.pow(y - (GRID_SIZE - 1) / 2, 2) +
+                Math.pow(z - (GRID_SIZE - 1) / 2, 2)
+            );
+            const maxDist = Math.sqrt(3 * Math.pow((GRID_SIZE - 1) / 2, 2));
+            const isOuter = centerDist > maxDist * 0.5;
+            
+            // Create materials for all 6 faces with the hidden texture
+            const materials = [];
+            for (let i = 0; i < 6; i++) {
+                materials.push(new THREE.MeshPhongMaterial({
+                    map: textures.hidden,
+                    transparent: true,
+                    opacity: isOuter ? (isDarkTheme ? 0.35 : 0.5) : (isDarkTheme ? 0.6 : 0.7),
+                    shininess: 100,
+                    depthWrite: false
+                }));
+            }
+            
+            const mesh = new THREE.Mesh(geometry, materials);
+            
+            mesh.position.set(
+                x * (CELL_SIZE + cellGap) - offset,
+                y * (CELL_SIZE + cellGap) - offset,
+                z * (CELL_SIZE + cellGap) - offset
+            );
+            
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            
+            const cell = {
+                mesh,
+                x, y, z,
+                isMine: false,
+                isRevealed: false,
+                isFlagged: false,
+                adjacentMines: 0,
+                isOuter: isOuter
+            };
+            
+            mesh.userData.cell = cell;
+            
+            return cell;
+        }
+        
+        function placeMines() {
+            let placed = 0;
+            while (placed < MINE_COUNT) {
+                const index = Math.floor(Math.random() * cells.length);
+                if (!cells[index].isMine) {
+                    cells[index].isMine = true;
+                    placed++;
+                }
+            }
+        }
+        
+        function calculateAdjacentMines() {
+            cells.forEach(cell => {
+                if (cell.isMine) return;
+                
+                let count = 0;
+                getNeighbors(cell).forEach(neighbor => {
+                    if (neighbor.isMine) count++;
+                });
+                cell.adjacentMines = count;
+            });
+        }
+        
+        function getNeighbors(cell) {
+            const neighbors = [];
+            
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dz = -1; dz <= 1; dz++) {
+                        if (dx === 0 && dy === 0 && dz === 0) continue;
+                        
+                        const nx = cell.x + dx;
+                        const ny = cell.y + dy;
+                        const nz = cell.z + dz;
+                        
+                        if (nx >= 0 && nx < GRID_SIZE &&
+                            ny >= 0 && ny < GRID_SIZE &&
+                            nz >= 0 && nz < GRID_SIZE) {
+                            const neighbor = cells.find(c => 
+                                c.x === nx && c.y === ny && c.z === nz
+                            );
+                            if (neighbor) neighbors.push(neighbor);
+                        }
+                    }
+                }
+            }
+            
+            return neighbors;
+        }
+        
+        function revealCell(cell, delay = 0) {
+            if (cell.isRevealed || cell.isFlagged || gameOver) return;
+            
+            if (!gameStarted) {
+                gameStarted = true;
+                startTimer();
+            }
+            
+            cell.isRevealed = true;
+            revealedCount++;
+            
+            if (cell.isMine) {
+                // Game Over - show mine
+                updateCellTexture(cell, textures.mine, true);
+                gameOver = true;
+                endGame(false);
+                revealAllMines();
+                return;
+            }
+            
+            // Delayed reveal animation
+            setTimeout(() => {
+                // Update cell appearance with pop animation
+                cell.mesh.scale.set(0.1, 0.1, 0.1);
+                updateCellAppearance(cell);
+                
+                // Animate scale
+                animateCellReveal(cell);
+            }, delay);
+            
+            // Auto-reveal if no adjacent mines
+            if (cell.adjacentMines === 0) {
+                let neighborDelay = delay + 8;
+                getNeighbors(cell).forEach(neighbor => {
+                    if (!neighbor.isRevealed && !neighbor.isFlagged) {
+                        revealCell(neighbor, neighborDelay);
+                        neighborDelay += 5;
+                    }
+                });
+            }
+            
+            // Check win condition after delay
+            setTimeout(() => checkWin(), delay + 20);
+        }
+        
+        function animateCellReveal(cell) {
+            const targetScale = cell.adjacentMines === 0 ? 0.4 : 1.0;
+            const duration = 50;
+            const startTime = performance.now();
+            const startScale = 0.1;
+            
+            function animate() {
+                const elapsed = performance.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Easing function (ease out back for bounce effect)
+                const easeOutBack = 1 + 2.70158 * Math.pow(progress - 1, 3) + 1.70158 * Math.pow(progress - 1, 2);
+                const scale = startScale + (targetScale - startScale) * easeOutBack;
+                
+                cell.mesh.scale.set(scale, scale, scale);
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else if (cell.adjacentMines === 0) {
+                    // 空セル表示設定に基づいて表示/非表示
+                    cell.mesh.visible = showEmptyCells;
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        function updateCellTexture(cell, texture, isRevealed = false) {
+            const materials = [];
+            // Inner cells are more visible when revealed
+            // Light mode needs higher opacity for visibility
+            const baseOpacity = isRevealed ? 0.95 : (cell.isOuter ? (isDarkTheme ? 0.35 : 0.5) : (isDarkTheme ? 0.6 : 0.7));
+            for (let i = 0; i < 6; i++) {
+                materials.push(new THREE.MeshPhongMaterial({
+                    map: texture,
+                    transparent: true,
+                    opacity: baseOpacity,
+                    shininess: 80,
+                    depthWrite: isRevealed
+                }));
+            }
+            cell.mesh.material = materials;
+        }
+        
+        function updateCellAppearance(cell) {
+            if (cell.adjacentMines > 0) {
+                updateCellTexture(cell, textures.numbers[cell.adjacentMines], true);
+            } else {
+                updateCellTexture(cell, textures.empty, true);
+                // Scale will be set by animation
+            }
+        }
+        
+        function toggleFlag(cell) {
+            if (cell.isRevealed || gameOver) return;
+            
+            cell.isFlagged = !cell.isFlagged;
+            
+            if (cell.isFlagged) {
+                updateCellTexture(cell, textures.flag, true);
+                flagCount++;
+            } else {
+                updateCellTexture(cell, textures.hidden, false);
+                flagCount--;
+            }
+            
+            updateUI();
+        }
+        
+        function revealAllMines() {
+            cells.forEach(cell => {
+                if (cell.isMine && !cell.isFlagged) {
+                    // 地雷でフラグがないものは地雷を表示
+                    updateCellTexture(cell, textures.mine, true);
+                } else if (!cell.isMine && cell.isFlagged) {
+                    // 地雷じゃないのにフラグを立てたものは✕を表示
+                    updateCellTexture(cell, textures.wrongFlag, true);
+                }
+            });
+        }
+        
+        function checkWin() {
+            const totalCells = GRID_SIZE * GRID_SIZE * GRID_SIZE;
+            const nonMineCells = totalCells - MINE_COUNT;
+            
+            console.log('checkWin:', revealedCount, '/', nonMineCells);
+            
+            if (revealedCount >= nonMineCells && !gameOver) {
+                gameOver = true;
+                gameWon = true;
+                
+                // Auto-flag remaining mines
+                flagAllMines();
+                
+                endGame(true);
+            }
+        }
+        
+        function flagAllMines() {
+            cells.forEach(cell => {
+                if (cell.isMine && !cell.isFlagged) {
+                    cell.isFlagged = true;
+                    updateCellTexture(cell, textures.flag, true);
+                    flagCount++;
+                }
+            });
+            updateUI();
+        }
+        
+        function endGame(won) {
+            stopTimer();
+            
+            const messageEl = document.getElementById('gameMessage');
+            const boxEl = document.getElementById('messageBox');
+            const titleEl = document.getElementById('messageTitle');
+            const subtitleEl = document.getElementById('messageSubtitle');
+            
+            if (won) {
+                boxEl.className = 'message-box win';
+                titleEl.textContent = 'VICTORY';
+                subtitleEl.textContent = `Time: ${formatTime(seconds)}`;
+            } else {
+                boxEl.className = 'message-box lose';
+                titleEl.textContent = 'GAME OVER';
+                subtitleEl.textContent = 'You hit a mine!';
+            }
+            
+            messageEl.classList.add('show');
+        }
+        
+        function newGame() {
+            gameOver = false;
+            gameWon = false;
+            gameStarted = false;
+            flagCount = 0;
+            revealedCount = 0;
+            seconds = 0;
+            stopTimer();
+            
+            // Reset gap to initial value
+            cellGap = 0.15;
+            
+            // Reset rotation to OFF
+            autoRotate = false;
+            const rotateBtn = document.getElementById('rotateToggle');
+            rotateBtn.textContent = '⏹️ 回転 OFF';
+            rotateBtn.classList.add('stopped');
+            
+            // Reset empty cells to OFF
+            showEmptyCells = false;
+            const emptyBtn = document.getElementById('emptyToggle');
+            emptyBtn.textContent = '⬜ 空セル OFF';
+            emptyBtn.classList.add('stopped');
+            
+            const popup = document.getElementById('gameMessage');
+            popup.classList.remove('show');
+            // Reset popup position
+            popup.style.transform = 'none';
+            popup.style.left = '20px';
+            popup.style.bottom = '150px';
+            popup.style.top = 'auto';
+            
+            document.getElementById('timer').textContent = '0:00';
+            
+            createGame();
+            resetView();
+        }
+        
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                seconds++;
+                document.getElementById('timer').textContent = formatTime(seconds);
+            }, 1000);
+        }
+        
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+        
+        function formatTime(s) {
+            const mins = Math.floor(s / 60);
+            const secs = s % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        function updateUI() {
+            document.getElementById('mines').textContent = MINE_COUNT;
+            document.getElementById('flags').textContent = flagCount;
+        }
+        
+        // Controls
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let dragDistance = 0;
+        
+        function setupControls() {
+            renderer.domElement.addEventListener('mousedown', (e) => {
+                if (e.button === 0) {
+                    isDragging = true;
+                    dragDistance = 0;
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                }
+            });
+            
+            renderer.domElement.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+            
+            renderer.domElement.addEventListener('mouseleave', () => {
+                isDragging = false;
+            });
+            
+            renderer.domElement.addEventListener('mousemove', (e) => {
+                if (isDragging && cubeGroup) {
+                    const deltaMove = {
+                        x: e.clientX - previousMousePosition.x,
+                        y: e.clientY - previousMousePosition.y
+                    };
+                    
+                    dragDistance += Math.abs(deltaMove.x) + Math.abs(deltaMove.y);
+                    
+                    // カメラ視点に基づいた回転（常にマウス方向に回転）
+                    const rotationSpeed = 0.005;
+                    
+                    // カメラの右方向と上方向を取得
+                    const cameraRight = new THREE.Vector3();
+                    const cameraUp = new THREE.Vector3();
+                    camera.getWorldDirection(new THREE.Vector3());
+                    cameraRight.setFromMatrixColumn(camera.matrixWorld, 0);
+                    cameraUp.setFromMatrixColumn(camera.matrixWorld, 1);
+                    
+                    // 水平方向のドラッグ → カメラの上方向を軸に回転
+                    const quaternionY = new THREE.Quaternion();
+                    quaternionY.setFromAxisAngle(cameraUp, deltaMove.x * rotationSpeed);
+                    
+                    // 垂直方向のドラッグ → カメラの右方向を軸に回転
+                    const quaternionX = new THREE.Quaternion();
+                    quaternionX.setFromAxisAngle(cameraRight, deltaMove.y * rotationSpeed);
+                    
+                    // 回転を適用
+                    cubeGroup.quaternion.premultiply(quaternionY);
+                    cubeGroup.quaternion.premultiply(quaternionX);
+                    
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                }
+            });
+            
+            renderer.domElement.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                
+                if (e.ctrlKey) {
+                    // Ctrl + scroll: adjust gap
+                    cellGap += e.deltaY * -0.002;
+                    cellGap = Math.max(0.1, Math.min(1.5, cellGap)); // Clamp between 0.1 and 1.5
+                    updateCellPositions();
+                } else {
+                    // Normal scroll: zoom
+                    const zoomSpeed = 0.5;
+                    camera.position.multiplyScalar(1 + e.deltaY * 0.001 * zoomSpeed);
+                    
+                    // Clamp zoom
+                    const dist = camera.position.length();
+                    if (dist < 5) camera.position.setLength(5);
+                    if (dist > 30) camera.position.setLength(30);
+                }
+            }, { passive: false });
+        }
+        
+        function resetView() {
+            const duration = 500;
+            const startTime = performance.now();
+            
+            // 現在の状態を保存
+            const startQuaternion = cubeGroup.quaternion.clone();
+            const targetQuaternion = new THREE.Quaternion(0, 0, 0, 1);
+            
+            const startCameraPos = camera.position.clone();
+            const targetCameraPos = new THREE.Vector3(8, 8, 8);
+            
+            function animate() {
+                const elapsed = performance.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Ease out cubic
+                const eased = 1 - Math.pow(1 - progress, 3);
+                
+                // キューブの回転をアニメーション
+                if (cubeGroup) {
+                    cubeGroup.quaternion.slerpQuaternions(startQuaternion, targetQuaternion, eased);
+                }
+                
+                // カメラ位置をアニメーション
+                camera.position.lerpVectors(startCameraPos, targetCameraPos, eased);
+                camera.lookAt(0, 0, 0);
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        function onMouseMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            // Raycast for hover
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(cubeGroup ? cubeGroup.children : []);
+            
+            // Reset previous hover
+            if (hoveredCell && !hoveredCell.isRevealed && !hoveredCell.isFlagged) {
+                // Reset scale
+                hoveredCell.mesh.scale.set(1, 1, 1);
+            }
+            
+            if (intersects.length > 0 && !isDragging) {
+                const cell = intersects[0].object.userData.cell;
+                if (cell && !cell.isRevealed && !cell.isFlagged) {
+                    cell.mesh.scale.set(1.1, 1.1, 1.1);
+                    hoveredCell = cell;
+                    document.body.style.cursor = 'pointer';
+                } else {
+                    hoveredCell = null;
+                    document.body.style.cursor = 'default';
+                }
+            } else {
+                hoveredCell = null;
+                document.body.style.cursor = isDragging ? 'grabbing' : 'default';
+            }
+        }
+        
+        function onClick(event) {
+            if (!cubeGroup || dragDistance > 5) return;
+            
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(cubeGroup.children);
+            
+            if (intersects.length > 0) {
+                const cell = intersects[0].object.userData.cell;
+                if (cell) {
+                    revealCell(cell);
+                }
+            }
+        }
+        
+        function onRightClick(event) {
+            event.preventDefault();
+            if (!cubeGroup) return;
+            
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(cubeGroup.children);
+            
+            if (intersects.length > 0) {
+                const cell = intersects[0].object.userData.cell;
+                if (cell) {
+                    toggleFlag(cell);
+                }
+            }
+        }
+        
+        // Animation
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Slow auto rotation when not interacting
+            if (cubeGroup && !isDragging && !gameOver && autoRotate) {
+                cubeGroup.rotation.y += 0.001;
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Start
+        init();
+    </script>
+</body>
+</html>
