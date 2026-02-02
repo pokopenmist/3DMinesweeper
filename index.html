@@ -400,6 +400,53 @@
             color: #ff6600;
         }
         
+        .ai-panel {
+            position: absolute;
+            top: 145px;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: auto;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .ai-btn {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 8px 20px;
+            border: 1px solid rgba(0, 255, 157, 0.5);
+            border-radius: 20px;
+            background: rgba(0, 255, 157, 0.1);
+            color: #00ff9d;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        
+        .ai-btn:hover {
+            background: rgba(0, 255, 157, 0.2);
+            border-color: #00ff9d;
+            box-shadow: 0 0 15px rgba(0, 255, 157, 0.3);
+        }
+        
+        .ai-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .ai-btn.running {
+            border-color: #ffcc00;
+            color: #ffcc00;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
         .loading {
             position: absolute;
             top: 50%;
@@ -441,6 +488,11 @@
                 <button class="theme-btn" id="themeToggle">🌙 Dark</button>
                 <button class="rotate-btn stopped" id="rotateToggle">⏹️ 回転 OFF</button>
                 <button class="rotate-btn stopped" id="emptyToggle">⬜ 空セル OFF</button>
+                <button class="rotate-btn stopped" id="highlightToggle">💡 ハイライト OFF</button>
+            </div>
+            
+            <div class="ai-panel">
+                <button class="ai-btn" id="autoPlayBtn">🤖 自動プレイ</button>
             </div>
             
             <div class="stats-panel">
@@ -560,6 +612,7 @@
         let isDarkTheme = true;
         let autoRotate = false;
         let showEmptyCells = false;
+        let showHighlight = false;
         
         const themes = {
             dark: {
@@ -824,6 +877,7 @@
             textures.mine = createMineTexture();
             textures.flag = createFlagTexture();
             textures.wrongFlag = createWrongFlagTexture();
+            textures.highlight = createHighlightTexture();
             for (let i = 1; i <= 26; i++) {
                 textures.numbers[i] = createNumberTexture(i);
             }
@@ -836,6 +890,7 @@
             mine: createMineTexture(),
             flag: createFlagTexture(),
             wrongFlag: createWrongFlagTexture(),
+            highlight: createHighlightTexture(),
             numbers: [null]
         };
         
@@ -956,6 +1011,173 @@
             });
         }
         
+        function toggleHighlight() {
+            showHighlight = !showHighlight;
+            const btn = document.getElementById('highlightToggle');
+            if (showHighlight) {
+                btn.textContent = '💡 ハイライト ON';
+                btn.classList.remove('stopped');
+            } else {
+                btn.textContent = '💡 ハイライト OFF';
+                btn.classList.add('stopped');
+                // ハイライトをクリア
+                clearHighlightedNeighbors();
+            }
+        }
+        
+        // AI Solver
+        let aiRunning = false;
+        let aiInterval = null;
+        
+        // AIが次の一手を計算
+        function getAIMove() {
+            // 未開封のセルを取得
+            const hiddenCells = cells.filter(c => !c.isRevealed && !c.isFlagged);
+            const revealedCells = cells.filter(c => c.isRevealed && c.adjacentMines > 0);
+            
+            // ゲーム開始前なら中央付近をクリック
+            if (revealedCells.length === 0 && hiddenCells.length > 0) {
+                const center = Math.floor(GRID_SIZE / 2);
+                const centerCell = getCell(center, center, center);
+                if (centerCell && !centerCell.isRevealed) {
+                    return { action: 'reveal', cell: centerCell, confidence: 'random' };
+                }
+                return { action: 'reveal', cell: hiddenCells[0], confidence: 'random' };
+            }
+            
+            // 1. 確定的な安全セルを探す
+            for (const cell of revealedCells) {
+                const neighbors = getNeighbors(cell);
+                const hiddenNeighbors = neighbors.filter(n => !n.isRevealed && !n.isFlagged);
+                const flaggedNeighbors = neighbors.filter(n => n.isFlagged);
+                
+                // 周囲のフラグ数 = 隣接地雷数 なら、残りは全て安全
+                if (flaggedNeighbors.length === cell.adjacentMines && hiddenNeighbors.length > 0) {
+                    return { action: 'reveal', cell: hiddenNeighbors[0], confidence: 'certain' };
+                }
+            }
+            
+            // 2. 確定的な地雷セルを探す（フラグを立てる）
+            for (const cell of revealedCells) {
+                const neighbors = getNeighbors(cell);
+                const hiddenNeighbors = neighbors.filter(n => !n.isRevealed && !n.isFlagged);
+                const flaggedNeighbors = neighbors.filter(n => n.isFlagged);
+                
+                // 隠れセル数 + フラグ数 = 隣接地雷数 なら、全て地雷
+                if (hiddenNeighbors.length + flaggedNeighbors.length === cell.adjacentMines && hiddenNeighbors.length > 0) {
+                    return { action: 'flag', cell: hiddenNeighbors[0], confidence: 'certain' };
+                }
+            }
+            
+            // 3. 確率計算で最も安全なセルを探す
+            const probabilities = calculateMineProbabilities();
+            
+            if (probabilities.length > 0) {
+                // 最も地雷確率が低いセルを選択
+                probabilities.sort((a, b) => a.probability - b.probability);
+                const safest = probabilities[0];
+                
+                if (safest.probability < 0.5) {
+                    return { action: 'reveal', cell: safest.cell, confidence: 'probable', probability: safest.probability };
+                } else if (safest.probability > 0.7) {
+                    // 高確率で地雷ならフラグ
+                    const mostDangerous = probabilities[probabilities.length - 1];
+                    if (mostDangerous.probability > 0.7) {
+                        return { action: 'flag', cell: mostDangerous.cell, confidence: 'probable', probability: mostDangerous.probability };
+                    }
+                }
+                
+                return { action: 'reveal', cell: safest.cell, confidence: 'guess', probability: safest.probability };
+            }
+            
+            // 4. ランダムに選択（最後の手段）
+            if (hiddenCells.length > 0) {
+                const randomCell = hiddenCells[Math.floor(Math.random() * hiddenCells.length)];
+                return { action: 'reveal', cell: randomCell, confidence: 'random' };
+            }
+            
+            return null;
+        }
+        
+        // 地雷確率を計算
+        function calculateMineProbabilities() {
+            const hiddenCells = cells.filter(c => !c.isRevealed && !c.isFlagged);
+            const revealedCells = cells.filter(c => c.isRevealed && c.adjacentMines > 0);
+            
+            const probMap = new Map();
+            
+            // 各隠れセルの地雷確率を計算
+            for (const hidden of hiddenCells) {
+                let totalWeight = 0;
+                let mineWeight = 0;
+                
+                // 隣接する開いたセルから情報を収集
+                const revealedNeighbors = getNeighbors(hidden).filter(n => n.isRevealed && n.adjacentMines > 0);
+                
+                if (revealedNeighbors.length === 0) {
+                    // 情報がない場合はデフォルト確率
+                    const remainingMines = MINE_COUNT - cells.filter(c => c.isFlagged).length;
+                    const remainingHidden = hiddenCells.length;
+                    probMap.set(hidden, remainingMines / remainingHidden);
+                } else {
+                    for (const revealed of revealedNeighbors) {
+                        const neighbors = getNeighbors(revealed);
+                        const hiddenNeighbors = neighbors.filter(n => !n.isRevealed && !n.isFlagged);
+                        const flaggedNeighbors = neighbors.filter(n => n.isFlagged);
+                        
+                        const remainingMines = revealed.adjacentMines - flaggedNeighbors.length;
+                        const probability = remainingMines / hiddenNeighbors.length;
+                        
+                        totalWeight += 1;
+                        mineWeight += probability;
+                    }
+                    
+                    probMap.set(hidden, mineWeight / totalWeight);
+                }
+            }
+            
+            return Array.from(probMap.entries()).map(([cell, probability]) => ({ cell, probability }));
+        }
+        
+        // 自動プレイ
+        function toggleAutoPlay() {
+            startAutoPlay();
+        }
+        
+        function startAutoPlay() {
+            if (gameOver) return;
+            
+            aiRunning = true;
+            document.getElementById('autoPlayBtn').style.display = 'none';
+            
+            aiInterval = setInterval(() => {
+                if (gameOver || !aiRunning) {
+                    stopAutoPlay();
+                    return;
+                }
+                
+                const move = getAIMove();
+                if (!move) {
+                    stopAutoPlay();
+                    return;
+                }
+                
+                if (move.action === 'flag') {
+                    toggleFlag(move.cell);
+                } else {
+                    revealCell(move.cell);
+                }
+            }, 200);
+        }
+        
+        function stopAutoPlay() {
+            aiRunning = false;
+            if (aiInterval) {
+                clearInterval(aiInterval);
+                aiInterval = null;
+            }
+        }
+
         // Popup drag functionality
         let popupDragging = false;
         let popupOffset = { x: 0, y: 0 };
@@ -1059,6 +1281,8 @@
             document.getElementById('themeToggle').addEventListener('click', toggleTheme);
             document.getElementById('rotateToggle').addEventListener('click', toggleRotation);
             document.getElementById('emptyToggle').addEventListener('click', toggleEmptyCells);
+            document.getElementById('highlightToggle').addEventListener('click', toggleHighlight);
+            document.getElementById('autoPlayBtn').addEventListener('click', toggleAutoPlay);
             
             // Mine buttons
             document.querySelectorAll('.mine-btn').forEach(btn => {
@@ -1404,6 +1628,11 @@
         }
         
         function newGame() {
+            // Stop AI if running
+            stopAutoPlay();
+            // Show auto play button again
+            document.getElementById('autoPlayBtn').style.display = 'block';
+            
             gameOver = false;
             gameWon = false;
             gameStarted = false;
@@ -1585,6 +1814,73 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
         
+        // 現在ハイライト中の隣接セル
+        let highlightedNeighbors = [];
+        
+        // ハイライト用テクスチャを作成
+        function createHighlightTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            
+            // 薄い黄色のグラデーション背景
+            const gradient = ctx.createLinearGradient(0, 0, 128, 128);
+            gradient.addColorStop(0, '#b8a060');
+            gradient.addColorStop(1, '#a08850');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 128, 128);
+            
+            // 薄めの枠線
+            ctx.strokeStyle = '#c8b070';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(4, 4, 120, 120);
+            
+            // 内側のハイライト
+            ctx.strokeStyle = '#b89860';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(8, 8, 112, 112);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+        
+        // ハイライトをクリア
+        function clearHighlightedNeighbors() {
+            highlightedNeighbors.forEach(cell => {
+                if (!cell.isRevealed && !cell.isFlagged) {
+                    updateCellTexture(cell, textures.hidden, false);
+                }
+            });
+            highlightedNeighbors = [];
+        }
+        
+        // 隣接セルをハイライト
+        function highlightNeighborCells(cell) {
+            if (!showHighlight) return;
+            if (!cell.isRevealed || cell.adjacentMines === 0) return;
+            
+            const neighbors = getNeighbors(cell);
+            const hiddenNeighbors = neighbors.filter(n => !n.isRevealed && !n.isFlagged);
+            
+            hiddenNeighbors.forEach(neighbor => {
+                // 薄い黄色のハイライトテクスチャを適用
+                const materials = [];
+                for (let i = 0; i < 6; i++) {
+                    materials.push(new THREE.MeshPhongMaterial({
+                        map: textures.highlight,
+                        transparent: true,
+                        opacity: neighbor.isOuter ? (isDarkTheme ? 0.45 : 0.55) : (isDarkTheme ? 0.6 : 0.7),
+                        shininess: 80,
+                        depthWrite: false
+                    }));
+                }
+                neighbor.mesh.material = materials;
+                highlightedNeighbors.push(neighbor);
+            });
+        }
+        
         function onMouseMove(event) {
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -1599,11 +1895,19 @@
                 hoveredCell.mesh.scale.set(1, 1, 1);
             }
             
+            // Clear previous highlighted neighbors
+            clearHighlightedNeighbors();
+            
             if (intersects.length > 0 && !isDragging) {
                 const cell = intersects[0].object.userData.cell;
                 if (cell && !cell.isRevealed && !cell.isFlagged) {
                     cell.mesh.scale.set(1.1, 1.1, 1.1);
                     hoveredCell = cell;
+                    document.body.style.cursor = 'pointer';
+                } else if (cell && cell.isRevealed && cell.adjacentMines > 0) {
+                    // 数字セルにホバーしたら周囲の未開封セルをハイライト
+                    highlightNeighborCells(cell);
+                    hoveredCell = null;
                     document.body.style.cursor = 'pointer';
                 } else {
                     hoveredCell = null;
