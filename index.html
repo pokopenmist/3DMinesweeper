@@ -485,6 +485,7 @@
             </div>
             
             <div class="theme-toggle">
+                <button class="theme-btn" id="langToggle">🌐 JP</button>
                 <button class="theme-btn" id="themeToggle">🌙 Dark</button>
                 <button class="rotate-btn stopped" id="rotateToggle">⏹️ 回転 OFF</button>
                 <button class="rotate-btn stopped" id="emptyToggle">⬜ 空セル OFF</button>
@@ -613,6 +614,81 @@
         let autoRotate = false;
         let showEmptyCells = false;
         let showHighlight = false;
+        let isJapanese = true;
+        
+        // 翻訳データ
+        const translations = {
+            jp: {
+                title: 'MINESWEEPER',
+                subtitle: '3D Edition',
+                time: 'Time',
+                mines: 'Mines',
+                flags: 'Flags',
+                controls: 'Controls',
+                leftClick: '左クリック',
+                openCell: 'セルを開く',
+                rightClick: '右クリック',
+                placeFlag: 'フラグを立てる',
+                drag: 'ドラッグ',
+                rotate: '回転',
+                scroll: 'スクロール',
+                zoom: 'ズーム',
+                ctrlScroll: 'Ctrl+スクロール',
+                adjustGap: '隙間調整',
+                size: 'Size',
+                beginner: '初級',
+                intermediate: '中級',
+                expert: '上級',
+                newGame: 'New Game',
+                resetView: 'Reset View',
+                autoPlay: '🤖 自動プレイ',
+                victory: 'VICTORY',
+                gameOver: 'GAME OVER',
+                hitMine: 'You hit a mine!',
+                playAgain: 'Play Again',
+                rotateOn: '🔄 回転 ON',
+                rotateOff: '⏹️ 回転 OFF',
+                emptyOn: '⬛ 空セル ON',
+                emptyOff: '⬜ 空セル OFF',
+                highlightOn: '💡 ハイライト ON',
+                highlightOff: '💡 ハイライト OFF'
+            },
+            en: {
+                title: 'MINESWEEPER',
+                subtitle: '3D Edition',
+                time: 'Time',
+                mines: 'Mines',
+                flags: 'Flags',
+                controls: 'Controls',
+                leftClick: 'Left Click',
+                openCell: 'Open cell',
+                rightClick: 'Right Click',
+                placeFlag: 'Place flag',
+                drag: 'Drag',
+                rotate: 'Rotate',
+                scroll: 'Scroll',
+                zoom: 'Zoom',
+                ctrlScroll: 'Ctrl+Scroll',
+                adjustGap: 'Adjust gap',
+                size: 'Size',
+                beginner: 'Easy',
+                intermediate: 'Medium',
+                expert: 'Hard',
+                newGame: 'New Game',
+                resetView: 'Reset View',
+                autoPlay: '🤖 Auto Play',
+                victory: 'VICTORY',
+                gameOver: 'GAME OVER',
+                hitMine: 'You hit a mine!',
+                playAgain: 'Play Again',
+                rotateOn: '🔄 Rotate ON',
+                rotateOff: '⏹️ Rotate OFF',
+                emptyOn: '⬛ Empty ON',
+                emptyOff: '⬜ Empty OFF',
+                highlightOn: '💡 Highlight ON',
+                highlightOff: '💡 Highlight OFF'
+            }
+        };
         
         const themes = {
             dark: {
@@ -983,11 +1059,12 @@
         function toggleRotation() {
             autoRotate = !autoRotate;
             const btn = document.getElementById('rotateToggle');
+            const t = isJapanese ? translations.jp : translations.en;
             if (autoRotate) {
-                btn.textContent = '🔄 回転 ON';
+                btn.textContent = t.rotateOn;
                 btn.classList.remove('stopped');
             } else {
-                btn.textContent = '⏹️ 回転 OFF';
+                btn.textContent = t.rotateOff;
                 btn.classList.add('stopped');
             }
         }
@@ -995,11 +1072,12 @@
         function toggleEmptyCells() {
             showEmptyCells = !showEmptyCells;
             const btn = document.getElementById('emptyToggle');
+            const t = isJapanese ? translations.jp : translations.en;
             if (showEmptyCells) {
-                btn.textContent = '⬛ 空セル ON';
+                btn.textContent = t.emptyOn;
                 btn.classList.remove('stopped');
             } else {
-                btn.textContent = '⬜ 空セル OFF';
+                btn.textContent = t.emptyOff;
                 btn.classList.add('stopped');
             }
             
@@ -1014,15 +1092,67 @@
         function toggleHighlight() {
             showHighlight = !showHighlight;
             const btn = document.getElementById('highlightToggle');
+            const t = isJapanese ? translations.jp : translations.en;
             if (showHighlight) {
-                btn.textContent = '💡 ハイライト ON';
+                btn.textContent = t.highlightOn;
                 btn.classList.remove('stopped');
             } else {
-                btn.textContent = '💡 ハイライト OFF';
+                btn.textContent = t.highlightOff;
                 btn.classList.add('stopped');
                 // ハイライトをクリア
                 clearHighlightedNeighbors();
             }
+        }
+        
+        function toggleLanguage() {
+            isJapanese = !isJapanese;
+            document.getElementById('langToggle').textContent = isJapanese ? '🌐 JP' : '🌐 EN';
+            updateLanguageUI();
+        }
+        
+        function updateLanguageUI() {
+            const t = isJapanese ? translations.jp : translations.en;
+            
+            // タイトル
+            document.querySelector('.title').textContent = t.title;
+            document.querySelector('.subtitle').textContent = t.subtitle;
+            
+            // Stats
+            document.querySelectorAll('.stat-label')[0].textContent = t.time;
+            document.querySelectorAll('.stat-label')[1].textContent = t.mines;
+            document.querySelectorAll('.stat-label')[2].textContent = t.flags;
+            
+            // Controls
+            document.querySelector('.help-title').textContent = t.controls;
+            const helpItems = document.querySelectorAll('.help-item');
+            helpItems[0].innerHTML = `<span>${t.leftClick}</span> - ${t.openCell}`;
+            helpItems[1].innerHTML = `<span>${t.rightClick}</span> - ${t.placeFlag}`;
+            helpItems[2].innerHTML = `<span>${t.drag}</span> - ${t.rotate}`;
+            helpItems[3].innerHTML = `<span>${t.scroll}</span> - ${t.zoom}`;
+            helpItems[4].innerHTML = `<span>${t.ctrlScroll}</span> - ${t.adjustGap}`;
+            
+            // Size buttons
+            document.querySelector('.size-label').textContent = t.size;
+            const sizeBtns = document.querySelectorAll('.size-btn');
+            sizeBtns[0].innerHTML = `${t.beginner}<br>3×3×3`;
+            sizeBtns[1].innerHTML = `${t.intermediate}<br>5×5×5`;
+            sizeBtns[2].innerHTML = `${t.expert}<br>7×7×7`;
+            
+            // Buttons
+            document.getElementById('newGame').textContent = t.newGame;
+            document.getElementById('resetView').textContent = t.resetView;
+            document.getElementById('autoPlayBtn').textContent = t.autoPlay;
+            document.getElementById('playAgain').textContent = t.playAgain;
+            
+            // Toggle buttons
+            const rotateBtn = document.getElementById('rotateToggle');
+            rotateBtn.textContent = autoRotate ? t.rotateOn : t.rotateOff;
+            
+            const emptyBtn = document.getElementById('emptyToggle');
+            emptyBtn.textContent = showEmptyCells ? t.emptyOn : t.emptyOff;
+            
+            const highlightBtn = document.getElementById('highlightToggle');
+            highlightBtn.textContent = showHighlight ? t.highlightOn : t.highlightOff;
         }
         
         // AI Solver
@@ -1278,6 +1408,7 @@
             document.getElementById('newGame').addEventListener('click', newGame);
             document.getElementById('playAgain').addEventListener('click', newGame);
             document.getElementById('resetView').addEventListener('click', resetView);
+            document.getElementById('langToggle').addEventListener('click', toggleLanguage);
             document.getElementById('themeToggle').addEventListener('click', toggleTheme);
             document.getElementById('rotateToggle').addEventListener('click', toggleRotation);
             document.getElementById('emptyToggle').addEventListener('click', toggleEmptyCells);
@@ -1609,6 +1740,7 @@
         function endGame(won) {
             stopTimer();
             
+            const t = isJapanese ? translations.jp : translations.en;
             const messageEl = document.getElementById('gameMessage');
             const boxEl = document.getElementById('messageBox');
             const titleEl = document.getElementById('messageTitle');
@@ -1616,12 +1748,12 @@
             
             if (won) {
                 boxEl.className = 'message-box win';
-                titleEl.textContent = 'VICTORY';
+                titleEl.textContent = t.victory;
                 subtitleEl.textContent = `Time: ${formatTime(seconds)}`;
             } else {
                 boxEl.className = 'message-box lose';
-                titleEl.textContent = 'GAME OVER';
-                subtitleEl.textContent = 'You hit a mine!';
+                titleEl.textContent = t.gameOver;
+                subtitleEl.textContent = t.hitMine;
             }
             
             messageEl.classList.add('show');
@@ -1647,14 +1779,21 @@
             // Reset rotation to OFF
             autoRotate = false;
             const rotateBtn = document.getElementById('rotateToggle');
-            rotateBtn.textContent = '⏹️ 回転 OFF';
+            const t = isJapanese ? translations.jp : translations.en;
+            rotateBtn.textContent = t.rotateOff;
             rotateBtn.classList.add('stopped');
             
             // Reset empty cells to OFF
             showEmptyCells = false;
             const emptyBtn = document.getElementById('emptyToggle');
-            emptyBtn.textContent = '⬜ 空セル OFF';
+            emptyBtn.textContent = t.emptyOff;
             emptyBtn.classList.add('stopped');
+            
+            // Reset highlight to OFF
+            showHighlight = false;
+            const highlightBtn = document.getElementById('highlightToggle');
+            highlightBtn.textContent = t.highlightOff;
+            highlightBtn.classList.add('stopped');
             
             const popup = document.getElementById('gameMessage');
             popup.classList.remove('show');
