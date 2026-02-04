@@ -614,7 +614,7 @@
         let autoRotate = false;
         let showEmptyCells = false;
         let showHighlight = false;
-        let isJapanese = true;
+        let currentLang = 'jp'; // 'jp', 'en', 'cn'
         
         // 翻訳データ
         const translations = {
@@ -687,6 +687,41 @@
                 emptyOff: '⬜ Empty OFF',
                 highlightOn: '💡 Highlight ON',
                 highlightOff: '💡 Highlight OFF'
+            },
+            cn: {
+                title: 'MINESWEEPER',
+                subtitle: '3D 版',
+                time: '时间',
+                mines: '地雷',
+                flags: '旗帜',
+                controls: '操作',
+                leftClick: '左键点击',
+                openCell: '打开格子',
+                rightClick: '右键点击',
+                placeFlag: '放置旗帜',
+                drag: '拖动',
+                rotate: '旋转',
+                scroll: '滚轮',
+                zoom: '缩放',
+                ctrlScroll: 'Ctrl+滚轮',
+                adjustGap: '调整间隙',
+                size: '大小',
+                beginner: '初级',
+                intermediate: '中级',
+                expert: '高级',
+                newGame: '新游戏',
+                resetView: '重置视角',
+                autoPlay: '🤖 自动游戏',
+                victory: '胜利',
+                gameOver: '游戏结束',
+                hitMine: '踩到地雷了！',
+                playAgain: '再玩一次',
+                rotateOn: '🔄 旋转 开',
+                rotateOff: '⏹️ 旋转 关',
+                emptyOn: '⬛ 空格 开',
+                emptyOff: '⬜ 空格 关',
+                highlightOn: '💡 高亮 开',
+                highlightOff: '💡 高亮 关'
             }
         };
         
@@ -1059,7 +1094,7 @@
         function toggleRotation() {
             autoRotate = !autoRotate;
             const btn = document.getElementById('rotateToggle');
-            const t = isJapanese ? translations.jp : translations.en;
+            const t = getTranslation();
             if (autoRotate) {
                 btn.textContent = t.rotateOn;
                 btn.classList.remove('stopped');
@@ -1072,7 +1107,7 @@
         function toggleEmptyCells() {
             showEmptyCells = !showEmptyCells;
             const btn = document.getElementById('emptyToggle');
-            const t = isJapanese ? translations.jp : translations.en;
+            const t = getTranslation();
             if (showEmptyCells) {
                 btn.textContent = t.emptyOn;
                 btn.classList.remove('stopped');
@@ -1092,7 +1127,7 @@
         function toggleHighlight() {
             showHighlight = !showHighlight;
             const btn = document.getElementById('highlightToggle');
-            const t = isJapanese ? translations.jp : translations.en;
+            const t = getTranslation();
             if (showHighlight) {
                 btn.textContent = t.highlightOn;
                 btn.classList.remove('stopped');
@@ -1105,13 +1140,25 @@
         }
         
         function toggleLanguage() {
-            isJapanese = !isJapanese;
-            document.getElementById('langToggle').textContent = isJapanese ? '🌐 JP' : '🌐 EN';
+            // JP -> EN -> CN -> JP
+            if (currentLang === 'jp') {
+                currentLang = 'en';
+            } else if (currentLang === 'en') {
+                currentLang = 'cn';
+            } else {
+                currentLang = 'jp';
+            }
+            const langLabels = { jp: '🌐 JP', en: '🌐 EN', cn: '🌐 CN' };
+            document.getElementById('langToggle').textContent = langLabels[currentLang];
             updateLanguageUI();
         }
         
+        function getTranslation() {
+            return translations[currentLang];
+        }
+        
         function updateLanguageUI() {
-            const t = isJapanese ? translations.jp : translations.en;
+            const t = getTranslation();
             
             // タイトル
             document.querySelector('.title').textContent = t.title;
@@ -1740,7 +1787,7 @@
         function endGame(won) {
             stopTimer();
             
-            const t = isJapanese ? translations.jp : translations.en;
+            const t = getTranslation();
             const messageEl = document.getElementById('gameMessage');
             const boxEl = document.getElementById('messageBox');
             const titleEl = document.getElementById('messageTitle');
@@ -1779,7 +1826,7 @@
             // Reset rotation to OFF
             autoRotate = false;
             const rotateBtn = document.getElementById('rotateToggle');
-            const t = isJapanese ? translations.jp : translations.en;
+            const t = getTranslation();
             rotateBtn.textContent = t.rotateOff;
             rotateBtn.classList.add('stopped');
             
